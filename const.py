@@ -50,7 +50,11 @@ HBPF_SLT_VHEAD  = 0x1
 HBPF_SLT_VTERM  = 0x2
 
 # HomeBrew Protocol Commands
+DMR     = b'DMR'
 DMRD    = b'DMRD'
+DMRE    = b'DMRE'
+DMRF    = b'DMRF'
+EOBP    = b'EOBP'
 MSTCL   = b'MSTCL'
 MSTNAK  = b'MSTNAK'
 MSTPONG = b'MSTPONG'
@@ -69,9 +73,19 @@ RPTA    = b'RPTA'
 RPTO    = b'RPTO'
 DMRA    = b'DMRA'
 
+#Proxy commands
+PRIN    = b'PRIN'
+PRBL    = b'PRBL'
+
 #Bridge Control commands
 BC      = b'BC'
 BCKA    = b'BCKA'
+BCSQ    = b'BCSQ'
+BCST    = b'BCST'
+BCVE    = b'BCVE'
+
+#Protocol version
+VER     = 4
 
 # Higheset peer ID permitted by HBP
 PEER_MAX = 4294967295

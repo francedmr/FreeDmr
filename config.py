@@ -30,15 +30,19 @@ import configparser
 import sys
 import const
 
+import socket
+import ipaddress 
 from socket import gethostbyname
+from languages import languages
+
 
 # Does anybody read this stuff? There's a PEP somewhere that says I should do this.
 __author__     = 'Cortney T. Buffington, N0MJS'
-__copyright__  = 'Copyright (c) 2016-2018 Cortney T. Buffington, N0MJS and the K0USY Group'
+__copyright__  = '(c) Simon Adlem, G7RZU 2020-2021, Copyright (c) 2016-2018 Cortney T. Buffington, N0MJS and the K0USY Group'
 __credits__    = 'Colin Durbridge, G4EML, Steve Zingman, N4IRS; Mike Zingman, N4IRR; Jonathan Naylor, G4KLX; Hans Barthen, DL5DI; Torsten Shultze, DG1HT'
 __license__    = 'GNU GPLv3'
-__maintainer__ = 'Cort Buffington, N0MJS'
-__email__      = 'n0mjs@me.com'
+__maintainer__ = 'Simon Adlem, G7RZU'
+__email__      = 'simon@gb7fr.org.uk'
 
 # Processing of ALS goes here. It's separated from the acl_build function because this
 # code is hblink config-file format specific, and acl_build is abstracted
@@ -96,6 +100,22 @@ def acl_build(_acl, _max):
 
     return (action, acl)
 
+def IsIPv4Address(ip):
+    try:
+        ipaddress.IPv4Address(ip)
+        return True
+    except ValueError as errorCode:
+        pass
+        return False
+    
+def IsIPv6Address(ip):
+    try:
+        ipaddress.IPv6Address(ip)
+        return True
+    except ValueError as errorCode:
+        pass
+        return False   
+
 def build_config(_config_file):
     config = configparser.ConfigParser()
 
@@ -109,6 +129,7 @@ def build_config(_config_file):
     CONFIG['ALIASES'] = {}
     CONFIG['SYSTEMS'] = {}
     CONFIG['MYSQL'] = {}
+    CONFIG['ALLSTAR'] = {}
 
     try:
         for section in config.sections():
@@ -124,9 +145,12 @@ def build_config(_config_file):
                     'TG2_ACL': config.get(section, 'TGID_TS2_ACL'),
                     'GEN_STAT_BRIDGES': config.getboolean(section, 'GEN_STAT_BRIDGES'),
                     'ALLOW_NULL_PASSPHRASE': config.getboolean(section, 'ALLOW_NULL_PASSPHRASE'),
-                    'ANNOUNCEMENT_LANGUAGE': config.get(section, 'ANNOUNCEMENT_LANGUAGE')
+                    'ANNOUNCEMENT_LANGUAGES': config.get(section, 'ANNOUNCEMENT_LANGUAGES'),
+                    'SERVER_ID': config.getint(section, 'SERVER_ID').to_bytes(4, 'big')
                     
                 })
+                if not CONFIG['GLOBAL']['ANNOUNCEMENT_LANGUAGES']:
+                    CONFIG['GLOBAL']['ANNOUNCEMENT_LANGUAGES'] = languages
 
             elif section == 'REPORTS':
                 CONFIG['REPORTS'].update({
@@ -155,7 +179,10 @@ def build_config(_config_file):
                     'TGID_FILE': config.get(section, 'TGID_FILE'),
                     'PEER_URL': config.get(section, 'PEER_URL'),
                     'SUBSCRIBER_URL': config.get(section, 'SUBSCRIBER_URL'),
+                    'TGID_URL': config.get(section, 'TGID_URL'),
                     'STALE_TIME': config.getint(section, 'STALE_DAYS') * 86400,
+                    'SUB_MAP_FILE': config.get(section, 'SUB_MAP_FILE'),
+                    'LOCAL_SUBSCRIBER_FILE': config.get(section, 'LOCAL_SUBSCRIBER_FILE')
                 })
                 
             elif section == 'MYSQL':
@@ -169,6 +196,17 @@ def build_config(_config_file):
                     'TABLE': config.get(section, 'TABLE')
             })
                 
+            elif section == 'ALLSTAR':
+                CONFIG['ALLSTAR'].update({
+                    'ENABLED': config.getboolean(section, 'ENABLED'),
+                    'USER': config.get(section, 'USER'),
+                    'PASS': config.get(section, 'PASS'),
+                    'SERVER': config.get(section, 'SERVER'),
+                    'PORT': config.getint(section,'PORT'),
+                    'NODE' : config.getint(section,'NODE')
+            })
+            
+                
 
             elif config.getboolean(section, 'ENABLED'):
                 if config.get(section, 'MODE') == 'PEER':
@@ -181,6 +219,7 @@ def build_config(_config_file):
                         'PORT': config.getint(section, 'PORT'),
                         'MASTER_SOCKADDR': (gethostbyname(config.get(section, 'MASTER_IP')), config.getint(section, 'MASTER_PORT')),
                         'MASTER_IP': gethostbyname(config.get(section, 'MASTER_IP')),
+                        '_MASTER_IP': config.get(section, 'MASTER_IP'),
                         'MASTER_PORT': config.getint(section, 'MASTER_PORT'),
                         'PASSPHRASE': bytes(config.get(section, 'PASSPHRASE'), 'utf-8'),
                         'CALLSIGN': bytes(config.get(section, 'CALLSIGN').ljust(8)[:8], 'utf-8'),
@@ -203,7 +242,8 @@ def build_config(_config_file):
                         'USE_ACL': config.getboolean(section, 'USE_ACL'),
                         'SUB_ACL': config.get(section, 'SUB_ACL'),
                         'TG1_ACL': config.get(section, 'TGID_TS1_ACL'),
-                        'TG2_ACL': config.get(section, 'TGID_TS2_ACL')
+                        'TG2_ACL': config.get(section, 'TGID_TS2_ACL'),
+                        'ANNOUNCEMENT_LANGUAGE': config.get(section, 'ANNOUNCEMENT_LANGUAGE')
                     }})
                     CONFIG['SYSTEMS'][section].update({'STATS': {
                         'CONNECTION': 'NO',             # NO, RTPL_SENT, AUTHENTICATED, CONFIG-SENT, YES 
@@ -226,6 +266,7 @@ def build_config(_config_file):
                         'PORT': config.getint(section, 'PORT'),
                         'MASTER_SOCKADDR': (gethostbyname(config.get(section, 'MASTER_IP')), config.getint(section, 'MASTER_PORT')),
                         'MASTER_IP': gethostbyname(config.get(section, 'MASTER_IP')),
+                        '_MASTER_IP': config.get(section, 'MASTER_IP'),
                         'MASTER_PORT': config.getint(section, 'MASTER_PORT'),
                         'PASSPHRASE': bytes(config.get(section, 'PASSPHRASE'), 'utf-8'),
                         'CALLSIGN': bytes(config.get(section, 'CALLSIGN').ljust(8)[:8], 'utf-8'),
@@ -249,7 +290,8 @@ def build_config(_config_file):
                         'USE_ACL': config.getboolean(section, 'USE_ACL'),
                         'SUB_ACL': config.get(section, 'SUB_ACL'),
                         'TG1_ACL': config.get(section, 'TGID_TS1_ACL'),
-                        'TG2_ACL': config.get(section, 'TGID_TS2_ACL')
+                        'TG2_ACL': config.get(section, 'TGID_TS2_ACL'),
+                        'ANNOUNCEMENT_LANGUAGE': config.get(section, 'ANNOUNCEMENT_LANGUAGE')
                     }})
                     CONFIG['SYSTEMS'][section].update({'XLXSTATS': {
                         'CONNECTION': 'NO',             # NO, RTPL_SENT, AUTHENTICATED, CONFIG-SENT, YES 
@@ -268,7 +310,7 @@ def build_config(_config_file):
                         'ENABLED': config.getboolean(section, 'ENABLED'),
                         'REPEAT': config.getboolean(section, 'REPEAT'),
                         'MAX_PEERS': config.getint(section, 'MAX_PEERS'),
-                        'IP': gethostbyname(config.get(section, 'IP')),
+                        'IP': config.get(section, 'IP'),
                         'PORT': config.getint(section, 'PORT'),
                         'PASSPHRASE': bytes(config.get(section, 'PASSPHRASE'), 'utf-8'),
                         'GROUP_HANGTIME': config.getint(section, 'GROUP_HANGTIME'),
@@ -283,7 +325,10 @@ def build_config(_config_file):
                         'TS1_STATIC': config.get(section,'TS1_STATIC'),
                         'TS2_STATIC': config.get(section,'TS2_STATIC'),
                         'DEFAULT_REFLECTOR': config.getint(section, 'DEFAULT_REFLECTOR'),
-                        'GENERATOR': config.getint(section, 'GENERATOR')
+                        'GENERATOR': config.getint(section, 'GENERATOR'),
+                        'ANNOUNCEMENT_LANGUAGE': config.get(section, 'ANNOUNCEMENT_LANGUAGE'),
+                        'ALLOW_UNREG_ID': config.getboolean(section,'ALLOW_UNREG_ID'),
+                        'PROXY_CONTROL' : config.getboolean(section,'PROXY_CONTROL')
                     }})
                     CONFIG['SYSTEMS'][section].update({'PEERS': {}})
                     
@@ -292,20 +337,50 @@ def build_config(_config_file):
                         'MODE': config.get(section, 'MODE'),
                         'ENABLED': config.getboolean(section, 'ENABLED'),
                         'NETWORK_ID': config.getint(section, 'NETWORK_ID').to_bytes(4, 'big'),
-                        'IP': gethostbyname(config.get(section, 'IP')),
+                        #'OVERRIDE_SERVER_ID': config.getint(section, 'OVERRIDE_SERVER_ID').to_bytes(4, 'big'),
+                        'IP': config.get(section, 'IP'),
                         'PORT': config.getint(section, 'PORT'),
                         'PASSPHRASE': bytes(config.get(section, 'PASSPHRASE').ljust(20,'\x00')[:20], 'utf-8'),
-                        'TARGET_SOCK': (gethostbyname(config.get(section, 'TARGET_IP')), config.getint(section, 'TARGET_PORT')),
-                        'TARGET_IP': gethostbyname(config.get(section, 'TARGET_IP')),
+                        #'TARGET_SOCK': (gethostbyname(config.get(section, 'TARGET_IP')), config.getint(section, 'TARGET_PORT')),
+                        'TARGET_IP': config.get(section, 'TARGET_IP'),
                         'TARGET_PORT': config.getint(section, 'TARGET_PORT'),
                         'USE_ACL': config.getboolean(section, 'USE_ACL'),
                         'SUB_ACL': config.get(section, 'SUB_ACL'),
                         'TG1_ACL': config.get(section, 'TGID_ACL'),
                         'TG2_ACL': 'PERMIT:ALL',
                         'RELAX_CHECKS': config.getboolean(section, 'RELAX_CHECKS'),
-                        'ENHANCED_OBP': config.getboolean(section, 'ENHANCED_OBP')
+                        'ENHANCED_OBP': config.getboolean(section, 'ENHANCED_OBP'),
+                        'VER' : config.getint(section, 'PROTO_VER')
                     }})
                     
+                    try:
+                        
+                        if CONFIG['SYSTEMS'][section]['IP'] == '::':
+                            try:
+                                addr_info = socket.getaddrinfo(CONFIG['SYSTEMS'][section]['TARGET_IP'],CONFIG['SYSTEMS'][section]['TARGET_PORT'],socket.AF_INET6, socket.IPPROTO_IP)
+                            except gaierror:
+                                 addr_info = socket.getaddrinfo(CONFIG['SYSTEMS'][section]['TARGET_IP'],CONFIG['SYSTEMS'][section]['TARGET_PORT'],socket.AF_INET, socket.IPPROTO_IP)
+                        
+                        elif CONFIG['SYSTEMS'][section]['IP'] and IsIPv6Address(CONFIG['SYSTEMS'][section]['IP']):
+                            addr_info = socket.getaddrinfo(CONFIG['SYSTEMS'][section]['TARGET_IP'],CONFIG['SYSTEMS'][section]['TARGET_PORT'],socket.AF_INET6, socket.IPPROTO_IP)
+                                
+                        elif not CONFIG['SYSTEMS'][section]['IP'] or IsIPv4Address(CONFIG['SYSTEMS'][section]['IP']):
+                            addr_info = socket.getaddrinfo(CONFIG['SYSTEMS'][section]['TARGET_IP'],CONFIG['SYSTEMS'][section]['TARGET_PORT'],socket.AF_INET, socket.IPPROTO_IP)
+                        else:
+                            raise
+                        
+                        family, socktype, proto, canonname, sockaddr = addr_info[0]
+                        CONFIG['SYSTEMS'][section]['TARGET_IP'] = sockaddr[0]
+                        
+                        if CONFIG['SYSTEMS'][section]['IP'] == '::' and IsIPv4Address(CONFIG['SYSTEMS'][section]['TARGET_IP']):
+                                CONFIG['SYSTEMS'][section]['TARGET_IP'] = '::ffff:' + CONFIG['SYSTEMS'][section]['TARGET_IP']
+                        
+                        CONFIG['SYSTEMS'][section]['TARGET_SOCK'] = (CONFIG['SYSTEMS'][section]['TARGET_IP'],CONFIG['SYSTEMS'][section]['TARGET_PORT'])
+                    
+                    except:
+                        CONFIG['SYSTEMS'][section]['TARGET_IP'] = False
+                        CONFIG['SYSTEMS'][section]['TARGET_SOCK'] = (CONFIG['SYSTEMS'][section]['TARGET_IP'], CONFIG['SYSTEMS'][section]['TARGET_PORT'])
+                        
     
     except configparser.Error as err:
         sys.exit('Error processing configuration file -- {}'.format(err))

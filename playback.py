@@ -25,6 +25,7 @@ from bitarray import bitarray
 from time import time, sleep
 from importlib import import_module
 from random import randint
+from setproctitle import setproctitle
 
 # Twisted is pretty important, so I keep it separate
 from twisted.internet.protocol import Factory, Protocol
@@ -172,6 +173,9 @@ if __name__ == '__main__':
     import signal
     from dmr_utils3.utils import try_download, mk_id_dict
     
+    #Set process title early
+    setproctitle(__file__)
+    
     # Change the current directory to the location of the application
     os.chdir(os.path.dirname(os.path.realpath(sys.argv[0])))
 
@@ -206,18 +210,22 @@ if __name__ == '__main__':
     for sig in [signal.SIGTERM, signal.SIGINT]:
         signal.signal(sig, sig_handler)
     
-    # ID ALIAS CREATION
-    # Download
-    if CONFIG['ALIASES']['TRY_DOWNLOAD'] == True:
-        # Try updating peer aliases file
-        result = try_download(CONFIG['ALIASES']['PATH'], CONFIG['ALIASES']['PEER_FILE'], CONFIG['ALIASES']['PEER_URL'], CONFIG['ALIASES']['STALE_TIME'])
-        logger.info(result)
-        # Try updating subscriber aliases file
-        result = try_download(CONFIG['ALIASES']['PATH'], CONFIG['ALIASES']['SUBSCRIBER_FILE'], CONFIG['ALIASES']['SUBSCRIBER_URL'], CONFIG['ALIASES']['STALE_TIME'])
-        logger.info(result)
+    #ID ALIAS CREATION
+    #Download
+    #if CONFIG['ALIASES']['TRY_DOWNLOAD'] == True:
+    #    Try updating peer aliases file
+    #    result = try_download(CONFIG['ALIASES']['PATH'], CONFIG['ALIASES']['PEER_FILE'], CONFIG['ALIASES']['PEER_URL'], #CONFIG['ALIASES']['STALE_TIME'])
+    #    logger.info(result)
+    #    Try updating subscriber aliases file
+    #    result = try_download(CONFIG['ALIASES']['PATH'], CONFIG['ALIASES']['SUBSCRIBER_FILE'], CONFIG['ALIASES']['SUBSCRIBER_URL'], CONFIG['ALIASES']['STALE_TIME'])
+    #    logger.info(result)
         
     # Create the name-number mapping dictionaries
-    peer_ids, subscriber_ids, talkgroup_ids = mk_aliases(CONFIG)
+    #peer_ids, subscriber_ids, talkgroup_ids = mk_aliases(CONFIG)
+    
+    peer_ids = {}
+    subscriber_ids = {}
+    talkgroup_ids = {}
         
     # INITIALIZE THE REPORTING LOOP
     report_server = config_reports(CONFIG, reportFactory)    
